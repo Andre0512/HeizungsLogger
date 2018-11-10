@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import logging
 import os
 import sys
@@ -28,8 +30,15 @@ def get_sensors():
     return response.json()
 
 
+def get_value(v):
+    if v['name'][:11] == "Temperature":
+        value = format(v['rawValue'], "0.1f") + "°C"
+        return "{}: `{}`".format(v['name'], value)
+    return "{}: `{}`".format(v['name'], v['rawValue'])
+
+
 def parse_message():
-    text = ["{} `{}`".format(v['name'], v['rawValue']) for v in get_sensors()]
+    text = [get_value(v) for v in get_sensors()]
     text.append("\n_Aktualisiert: {}_".format(datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")))
     return "\n".join(text)
 
@@ -65,9 +74,9 @@ def main():
 if __name__ == '__main__':
     try:
         send()
-        #if len(sys.argv) > 1 and sys.argv[1] == "1":
+        # if len(sys.argv) > 1 and sys.argv[1] == "1":
         #    send()
-        #else:
+        # else:
         #    main()
     except Exception as e:
         logger.error(e)
