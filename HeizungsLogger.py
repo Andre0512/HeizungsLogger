@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 from datetime import datetime
+from pprint import pprint
 
 import requests as r
 from telegram.bot import Bot
@@ -23,23 +24,69 @@ else:
 logger = logging.getLogger(__name__)
 
 URL = "http://{}:{}/api/v1/live-data"
+TEXT = """
+*Solar*
+Außentemperatur: `{S9}`°C
+Kollektorfühler: `{S1}`°C
+Primärer Speicher: `{S2}`°C
+Pumpe Speicher 1: `{R1}`
+Sekundärer Speicher: `{S3}`°C
+Pumpe Speicher 2: `{R4}`
+
+*Ölheizung*
+Temperatur: `{S14}`°C
+Aktiv: `{R13}`
+Pumpe: `{R8}`
+
+*Warmwasser*
+Boiler: `{S16}`°C
+Nachheizung: `{S6}`°C
+Pumpe: `{R3}`
+
+*Heizung*
+Temperatur: `{S10}`°C
+Nachheizung: `{S5}`°C
+Pumpe: `{R5}`
+Mischventil: `{R6}`
+
+*Holzofen*
+Temperatur: `{S7}`°C
+Pumpe: `{R9}`
+"""
 
 
 def get_sensors():
     response = r.get(URL.format(VBUS_SERVER["IP"], VBUS_SERVER["PORT"]))
-    return response.json()
-
-
-def get_value(v):
-    if v['name'][:11] == "Temperature":
-        value = format(v['rawValue'], "0.1f") + "°C"
-        return "{}: `{}`".format(v['name'], value)
-    return "{}: `{}`".format(v['name'], v['rawValue'])
+    result = {}
+    s = 0
+    p = 0
+    for x in response.json():
+        if x['name'][:11] == "Temperature":
+            s += 1
+            result['S' + str(s)] = format(x['rawValue'], "0.1f")
+        if x['name'][:10] == "Pump speed":
+            p += 1
+            result['R' + str(p)] = format(x['rawValue'], "0.1f")
+    result['R1'] = result['R1'] + "%" if float(result['R1']) > 0 and float(result["R3"]) == 0 else "❌"
+    result['R4'] = result['R1'] + "%" if not result['R1'] == "❌" and float(result['R4']) > 0 else "❌"
+    result['R13'] = "✔️" if float(result['R13']) > 0 else "❌"
+    result['R8'] = "✔️" if float(result['R8']) > 0 else "❌"
+    result['R3'] = "✔️" if float(result['R3']) > 0 else "❌"
+    result['R5'] = "✔️" if float(result['R5']) > 0 else "❌"
+    result['R9'] = "✔️" if float(result['R9']) > 0 else "❌"
+    if float(result['R6']) > 0:
+        result['R6'] = "✔️"
+    elif float(result['R7']) > 0:
+        result['R6'] = "️❌"
+    else:
+        result['R6'] = "❔"
+    pprint(result)
+    return result
 
 
 def parse_message():
-    text = [get_value(v) for v in get_sensors()]
-    text.append("\n_Aktualisiert: {}_".format(datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")))
+    text = [TEXT.format(**get_sensors())]
+    text.append("_Aktualisiert: {}_".format(datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")))
     return "\n".join(text)
 
 
@@ -72,8 +119,9 @@ def main():
 
 
 if __name__ == '__main__':
+    send()
     try:
-        send()
+        pass
         # if len(sys.argv) > 1 and sys.argv[1] == "1":
         #    send()
         # else:
