@@ -3,8 +3,8 @@
 import logging
 import os
 import sys
+import time
 from datetime import datetime
-from pprint import pprint
 
 import requests as r
 from telegram.bot import Bot
@@ -40,6 +40,7 @@ Pumpe: `{R8}`
 
 *Warmwasser*
 Boiler: `{S16}`°C
+Zirkulation: `{S8}`°C
 Nachheizung: `{S6}`°C
 Pumpe: `{R3}`
 
@@ -55,12 +56,11 @@ Pumpe: `{R9}`
 """
 
 
-def get_sensors():
-    response = r.get(URL.format(VBUS_SERVER["IP"], VBUS_SERVER["PORT"]))
+def pretty(sensors):
     result = {}
     s = 0
     p = 0
-    for x in response.json():
+    for x in sensors:
         if x['name'][:11] == "Temperature":
             s += 1
             result['S' + str(s)] = format(x['rawValue'], "0.1f")
@@ -79,14 +79,29 @@ def get_sensors():
     elif float(result['R7']) > 0:
         result['R6'] = "️❌"
     else:
-        result['R6'] = "❔"
-    pprint(result)
+        result['R6'] = "🤷‍♂️"
+    return TEXT.format(**result).replace(".", ",")
+
+
+def ugly(sensors):
+    result = ""
+    for sensor in sensors:
+        if sensor['name'][:11] == "Temperature":
+            value = format(sensor['rawValue'], "0.1f") + "°C"
+            result += "{}: `{}`\n".format(sensor['name'], value)
+            continue
+        result += "{}: `{}`\n".format(sensor['name'], sensor['rawValue'])
     return result
 
 
+def get_sensors():
+    response = r.get(URL.format(VBUS_SERVER["IP"], VBUS_SERVER["PORT"]))
+    return response.json()
+
+
 def parse_message():
-    text = [TEXT.format(**get_sensors())]
-    text.append("_Aktualisiert: {}_".format(datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S")))
+    text = [pretty(get_sensors()),
+            "_Aktualisiert: {}_".format(datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S"))]
     return "\n".join(text)
 
 
@@ -119,7 +134,9 @@ def main():
 
 
 if __name__ == '__main__':
-    send()
+    while True:
+        time.sleep(4)
+        send()
     try:
         pass
         # if len(sys.argv) > 1 and sys.argv[1] == "1":
