@@ -58,14 +58,17 @@ Pumpe: `{R9}`
 
 def save_data(data):
     if len(sys.argv) > 1 and sys.argv[1] == "log":
+        save = False
         db = mongo.get_db()
         with open('data.json') as data_file:
             old_data = json.load(data_file)
         for k, v in old_data.items():
             if not data[k] == old_data[k]:
                 mongo.insert(db, {"state": v, "timestamp": datetime.now(), "name": k})
-        with open('data.json', 'w') as outfile:
-            json.dump(data, outfile, indent=4)
+                save = True
+        if save:
+            with open('data.json', 'w') as outfile:
+                json.dump(data, outfile, indent=4)
 
 
 def useful(sensors):
@@ -112,15 +115,33 @@ def ugly(sensors):
 
 
 def get_sensors():
-    response = r.get(URL.format(VBUS_SERVER["IP"], VBUS_SERVER["PORT"]))
-    return response.json()
+    try:
+        response = r.get(URL.format(VBUS_SERVER["IP"], VBUS_SERVER["PORT"]))
+        return [response.json(), False]
+    except r.exceptions.ConnectionError:
+        cmd = "ssh pi@{} \"cd /home/pi/resol-vbus/ && /home/pi/n/bin/node examples/json-live-data-server/index.js\" &"
+        if os.system("ping -c 2 " + VBUS_SERVER["IP"]) == 0:
+            if not os.system("ssh pi@{} pgrep -f json-live-data-server".format(VBUS_SERVER["IP"])) == 0:
+                os.system(cmd.format(VBUS_SERVER["IP"]))
+                return ["‼️Server gleich wieder erreichbar‼\n‼Daten evtl. nicht aktuell‼️", True]
+            return ["‼️‼️Server läuft, aber antwortet nicht‼️‼\n‼Daten evtl. nicht aktuell‼️️", True]
+        return ["‼️‼️‼️Raspberry Pi nicht erreichbar‼️‼️‼️\n‼Daten nicht evtl. aktuell‼️", True]
 
 
 def parse_message():
-    sensors = pretty(useful(get_sensors()))
+    text = []
+    sensors, error = get_sensors()
+    if error:
+        timestamp = datetime.fromtimestamp(os.path.getmtime('data.json'))
+        text.append(sensors)
+        with open('data.json') as data_file:
+            sensors = json.load(data_file)
+    else:
+        timestamp = datetime.now()
+        sensors = useful(sensors)
     save_data(sensors)
-    t = TEXT.format(**sensors).replace(".", ",")
-    text = [t, "_Aktualisiert: {}_".format(datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S"))]
+    text.append(TEXT.format(**pretty(sensors)).replace(".", ","))
+    text.append("_Aktualisiert: {}_".format(datetime.strftime(timestamp, "%Y-%m-%d %H:%M:%S")))
     return "\n".join(text)
 
 
@@ -153,7 +174,4 @@ def main():
 
 
 if __name__ == '__main__':
-    try:
-        send()
-    except Exception as e:
-        logger.error(e)
+    send()
