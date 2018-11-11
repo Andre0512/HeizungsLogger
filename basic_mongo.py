@@ -33,3 +33,8 @@ class BasicMongo:
     def update_name(db, old, new):
         print(db.sensors.update_one({"name": old}, {"$set": {"name": new}}))
         return True
+
+    @staticmethod
+    def insert(db, data):
+        db.heiz.insert_one(data)
+        return True

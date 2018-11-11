@@ -1,9 +1,8 @@
 #!/usr/bin/env python
-
+import json
 import logging
 import os
 import sys
-import time
 from datetime import datetime
 
 import requests as r
@@ -14,6 +13,7 @@ from telegram.inline.inlinekeyboardbutton import InlineKeyboardButton
 from telegram.inline.inlinekeyboardmarkup import InlineKeyboardMarkup
 from telegram.parsemode import ParseMode
 
+from basic_mongo import BasicMongo as mongo
 from secrets import TELEGRAM, DEBUG, VBUS_SERVER
 
 if DEBUG:
@@ -56,31 +56,48 @@ Pumpe: `{R9}`
 """
 
 
-def pretty(sensors):
+def save_data(data):
+    if len(sys.argv) > 1 and sys.argv[1] == "log":
+        db = mongo.get_db()
+        with open('data.json') as data_file:
+            old_data = json.load(data_file)
+        for k, v in old_data.items():
+            if not data[k] == old_data[k]:
+                mongo.insert(db, {"state": v, "timestamp": datetime.now(), "name": k})
+        with open('data.json', 'w') as outfile:
+            json.dump(data, outfile, indent=4)
+
+
+def useful(sensors):
     result = {}
     s = 0
     p = 0
     for x in sensors:
-        if x['name'][:11] == "Temperature":
+        if x['name'][:11] == "Temperature" and s < 16:
             s += 1
-            result['S' + str(s)] = format(x['rawValue'], "0.1f")
-        if x['name'][:10] == "Pump speed":
+            if float(x['rawValue']) < 800:
+                result['S' + str(s)] = format(x['rawValue'], "0.1f")
+        elif x['name'][:10] == "Pump speed" and p < 14:
             p += 1
             result['R' + str(p)] = format(x['rawValue'], "0.1f")
-    result['R1'] = result['R1'] + "%" if float(result['R1']) > 0 and float(result["R3"]) == 0 else "❌"
-    result['R4'] = result['R1'] + "%" if not result['R1'] == "❌" and float(result['R4']) > 0 else "❌"
-    result['R13'] = "✔️" if float(result['R13']) > 0 else "❌"
-    result['R8'] = "✔️" if float(result['R8']) > 0 else "❌"
-    result['R3'] = "✔️" if float(result['R3']) > 0 else "❌"
-    result['R5'] = "✔️" if float(result['R5']) > 0 else "❌"
-    result['R9'] = "✔️" if float(result['R9']) > 0 else "❌"
-    if float(result['R6']) > 0:
-        result['R6'] = "✔️"
-    elif float(result['R7']) > 0:
-        result['R6'] = "️❌"
+    return result
+
+
+def pretty(sensors):
+    sensors['R1'] = sensors['R1'] + "%" if float(sensors['R1']) > 0 and float(sensors["R3"]) == 0 else "❌"
+    sensors['R4'] = sensors['R1'] + "%" if not sensors['R1'] == "❌" and float(sensors['R4']) > 0 else "❌"
+    sensors['R13'] = "✔️" if float(sensors['R13']) > 0 else "❌"
+    sensors['R8'] = "✔️" if float(sensors['R8']) > 0 else "❌"
+    sensors['R3'] = "✔️" if float(sensors['R3']) > 0 else "❌"
+    sensors['R5'] = "✔️" if float(sensors['R5']) > 0 else "❌"
+    sensors['R9'] = "✔️" if float(sensors['R9']) > 0 else "❌"
+    if float(sensors['R6']) > 0:
+        sensors['R6'] = "✔️"
+    elif float(sensors['R7']) > 0:
+        sensors['R6'] = "️❌"
     else:
-        result['R6'] = "🤷‍♂️"
-    return TEXT.format(**result).replace(".", ",")
+        sensors['R6'] = "🤷‍♂️"
+    return sensors
 
 
 def ugly(sensors):
@@ -100,8 +117,10 @@ def get_sensors():
 
 
 def parse_message():
-    text = [pretty(get_sensors()),
-            "_Aktualisiert: {}_".format(datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S"))]
+    sensors = pretty(useful(get_sensors()))
+    save_data(sensors)
+    t = TEXT.format(**sensors).replace(".", ",")
+    text = [t, "_Aktualisiert: {}_".format(datetime.strftime(datetime.now(), "%Y-%m-%d %H:%M:%S"))]
     return "\n".join(text)
 
 
@@ -134,14 +153,7 @@ def main():
 
 
 if __name__ == '__main__':
-    while True:
-        time.sleep(4)
-        send()
     try:
-        pass
-        # if len(sys.argv) > 1 and sys.argv[1] == "1":
-        #    send()
-        # else:
-        #    main()
+        send()
     except Exception as e:
         logger.error(e)
