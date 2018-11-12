@@ -64,9 +64,11 @@ def save_data(data):
             old_data = json.load(data_file)
         for k, v in old_data.items():
             if not data[k] == old_data[k]:
+                logger.debug("changed = {} - {}".format(k, data[k]))
                 mongo.insert(db, {"state": v, "timestamp": datetime.now(), "name": k})
                 save = True
         if save:
+            logger.debug("saved - " + str(data))
             with open('data.json', 'w') as outfile:
                 json.dump(data, outfile, indent=4)
 
@@ -123,8 +125,11 @@ def get_sensors():
         if os.system("ping -c 2 " + VBUS_SERVER["IP"]) == 0:
             if not os.system("ssh pi@{} pgrep -f json-live-data-server".format(VBUS_SERVER["IP"])) == 0:
                 os.system(cmd.format(VBUS_SERVER["IP"]))
+                logger.warn("started - json-live-data-server")
                 return ["‼️Server gleich wieder erreichbar‼\n‼Daten evtl. nicht aktuell‼️", True]
+            logger.warn("json-live-data-server runs but not callable")
             return ["‼️‼️Server läuft, aber antwortet nicht‼️‼\n‼Daten evtl. nicht aktuell‼️️", True]
+        logger.warn(VBUS_SERVER["IP"] + " - not reachable")
         return ["‼️‼️‼️Raspberry Pi nicht erreichbar‼️‼️‼️\n‼Daten nicht evtl. aktuell‼️", True]
 
 
