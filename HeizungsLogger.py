@@ -57,10 +57,10 @@ Pumpe: `{R9}`
 
 
 def save_data(data):
-    if len(sys.argv) > 1 and sys.argv[1] == "log":
+    if len(sys.argv) > 1 and sys.argv[-1] == "log":
         save = False
         db = mongo.get_db()
-        with open('data.json') as data_file:
+        with open("{}/{}".format(os.path.dirname(os.path.realpath(__file__)), 'data.json')) as data_file:
             old_data = json.load(data_file)
         for k, v in old_data.items():
             if not data[k] == old_data[k]:
@@ -69,7 +69,7 @@ def save_data(data):
                 save = True
         if save:
             logger.debug("saved - " + str(data))
-            with open('data.json', 'w') as outfile:
+            with open("{}/{}".format(os.path.dirname(os.path.realpath(__file__)), 'data.json'), 'w') as outfile:
                 json.dump(data, outfile, indent=4)
 
 
@@ -137,9 +137,9 @@ def parse_message():
     text = []
     sensors, error = get_sensors()
     if error:
-        timestamp = datetime.fromtimestamp(os.path.getmtime('data.json'))
+        timestamp = datetime.fromtimestamp(os.path.getmtime("{}/{}".format(os.path.dirname(os.path.realpath(__file__)), 'data.json')))
         text.append(sensors)
-        with open('data.json') as data_file:
+        with open("{}/{}".format(os.path.dirname(os.path.realpath(__file__)), 'data.json')) as data_file:
             sensors = json.load(data_file)
     else:
         timestamp = datetime.now()

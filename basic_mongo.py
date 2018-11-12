@@ -27,7 +27,7 @@ class BasicMongo:
     @staticmethod
     def get_db():
         client = MongoClient(MONGO['HOST'], MONGO['PORT'])
-        return client.alarm_system
+        return client.heiz_system
 
     @staticmethod
     def update_name(db, old, new):
@@ -36,5 +36,5 @@ class BasicMongo:
 
     @staticmethod
     def insert(db, data):
-        db.heiz.insert_one(data)
+        db.sensors.insert_one(data)
         return True
