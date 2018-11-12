@@ -34,23 +34,23 @@ Sekundärer Speicher: `{S3}`°C
 Pumpe Speicher 2: `{R4}`
 
 *Ölheizung*
-Temperatur: `{S14}`°C
-Aktiv: `{R13}`
+Kesseltemperatur: `{S14}`°C
+Bereitschaft: `{R13}`
 Pumpe: `{R8}`
 
 *Warmwasser*
-Boiler: `{S16}`°C
-Zirkulation: `{S8}`°C
-Nachheizung: `{S6}`°C
+Pufferspeicher: `{S16}`°C
+Wassertemperatur: `{S8}`°C
+Nachlaufendes Wasser: `{S6}`°C
 Pumpe: `{R3}`
 
 *Heizung*
 Temperatur: `{S10}`°C
-Nachheizung: `{S5}`°C
+Nachlaufendes Wasser: `{S5}`°C
 Pumpe: `{R5}`
-Mischventil: `{R6}`
+Mischventil: {R6}
 
-*Holzofen*
+*Holzofen - Wert vmtl Falsch*
 Temperatur: `{S7}`°C
 Pumpe: `{R9}`
 """
@@ -89,7 +89,7 @@ def useful(sensors):
 
 
 def pretty(sensors):
-    sensors['R1'] = sensors['R1'] + "%" if float(sensors['R1']) > 0 and float(sensors["R3"]) == 0 else "❌"
+    sensors['R1'] = sensors['R1'] + "%" if float(sensors['R1']) > 0 and float(sensors["R4"]) == 0 else "❌"
     sensors['R4'] = sensors['R1'] + "%" if not sensors['R1'] == "❌" and float(sensors['R4']) > 0 else "❌"
     sensors['R13'] = "✔️" if float(sensors['R13']) > 0 else "❌"
     sensors['R8'] = "✔️" if float(sensors['R8']) > 0 else "❌"
@@ -97,11 +97,11 @@ def pretty(sensors):
     sensors['R5'] = "✔️" if float(sensors['R5']) > 0 else "❌"
     sensors['R9'] = "✔️" if float(sensors['R9']) > 0 else "❌"
     if float(sensors['R6']) > 0:
-        sensors['R6'] = "✔️"
+        sensors['R6'] = "_Warmwasserzufluss an_"
     elif float(sensors['R7']) > 0:
-        sensors['R6'] = "️❌"
+        sensors['R6'] = "_️Warmwasserzufluss aus_"
     else:
-        sensors['R6'] = "🤷‍♂️"
+        sensors['R6'] = "_Teilweise Warmwasserzufluss_"
     return sensors
 
 
