@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 URL = "http://{}:{}/api/v1/live-data"
 TEXT = """
+*LIVEDATEN*
+
 *Solar*
 Außentemperatur: `{S9}`°C
 Kollektorfühler: `{S1}`°C
@@ -35,7 +37,7 @@ Pumpe Speicher 2: `{R4}`
 
 *Ölheizung*
 Kesseltemperatur: `{S14}`°C
-Bereitschaft: `{R13}`
+Bereitschaft: `{R13}` 
 Pumpe: `{R8}`
 
 *Warmwasser*

@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from pymongo.mongo_client import MongoClient
 
 from secrets import MONGO
@@ -38,3 +40,16 @@ class BasicMongo:
     def insert(db, data):
         db.sensors.insert_one(data)
         return True
+
+    @staticmethod
+    def get_day_value(db, sensor, day, state=None):
+        if not state:
+            state = {"$exists": True}
+        today = (datetime.now() + timedelta(days=day)).replace(hour=0, minute=0, second=0, microsecond=0)
+        tomorrow = today + timedelta(days=1)
+        return db.sensors.find(
+            {"name": sensor, "state": state, "timestamp": {"$gte": today, "$lt": tomorrow}})
+
+    @staticmethod
+    def get_one(db, sensor):
+        return db.sensors.find_one({"name": sensor})
