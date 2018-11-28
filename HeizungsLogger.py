@@ -119,34 +119,50 @@ def ugly(sensors):
 
 
 def get_sensors():
+    bcmd = "ssh pi@{} \"{{}}\" {{}}".format(VBUS_SERVER["IP"])
     try:
         response = r.get(URL.format(VBUS_SERVER["IP"], VBUS_SERVER["PORT"]))
-        return [response.json(), False]
+        if response.json():
+            return [response.json(), False]
+        else:
+            if not int(datetime.now().strftime("%M")) % 10:
+                os.system(bcmd.format("pkill node", ""))
+                logger.warning("killed node")
+            return ["Daten können nicht gelesen werden. USB Gerät kurz trennen und erneut versuchen", True]
     except r.exceptions.ConnectionError:
-        cmd = "ssh pi@{} \"cd /home/pi/resol-vbus/ && /home/pi/n/bin/node examples/json-live-data-server/index.js\" &"
-        if os.system("ping -c 2 " + VBUS_SERVER["IP"]) == 0:
-            if not os.system("ssh pi@{} pgrep -f json-live-data-server".format(VBUS_SERVER["IP"])) == 0:
+        cmd = bcmd.format("cd /home/pi/resol-vbus/ && /home/pi/n/bin/node examples/json-live-data-server/index.js", "&")
+        if not os.system("ping -c 2 " + VBUS_SERVER["IP"]):
+            if os.system(bcmd.format("ls /dev/tty* | grep -q USB", "")):
+                if not os.system(bcmd.format("ls /dev/tty* | grep -q ACM0", "")):
+                    os.system("sudo rmmod -f cdc_acm ; sudo rmmod -f ftdi_sio ; sudo rmmod -f usbserial ; sudo modprobe"
+                              + "usbserial vendor=0x1fef product=0x2018 ; sudo modprobe ftdi_sio ; pkill node")
+                    logger.warning("executed USB reconfiguration")
+                    return ["USB Gerät rekonfiguriert... es geht gleich weiter...", True]
+                return ["USB Gerät wird nicht erkannt. Bitte (neu) anschließen"]
+            if os.system(bcmd.format("pgrep -f json-live-data-server", "")):
                 os.system(cmd.format(VBUS_SERVER["IP"]))
-                logger.warn("started - json-live-data-server")
-                return ["‼️Server gleich wieder erreichbar‼\n‼Daten evtl. nicht aktuell‼️", True]
-            logger.warn("json-live-data-server runs but not callable")
-            return ["‼️‼️Server läuft, aber antwortet nicht‼️‼\n‼Daten evtl. nicht aktuell‼️️", True]
-        logger.warn(VBUS_SERVER["IP"] + " - not reachable")
-        return ["‼️‼️‼️Raspberry Pi nicht erreichbar‼️‼️‼️\n‼Daten nicht evtl. aktuell‼️", True]
+                logger.warning("started - json-live-data-server")
+                return ["Auslesen wurde gestartet. Es geht gleich weiter (vielleicht)", True]
+            logger.warning("json-live-data-server runs but not callable")
+            return ["Auslesen gestartet, aber noch nicht verfügbar. Noch etwas Geduld...️️", True]
+        logger.warning(VBUS_SERVER["IP"] + " - not reachable")
+        return ["Raspberry Pi nicht erreichbar. Verbindung prüfen.", True]
 
 
 def parse_message():
     text = []
     sensors, error = get_sensors()
     if error:
-        timestamp = datetime.fromtimestamp(os.path.getmtime("{}/{}".format(os.path.dirname(os.path.realpath(__file__)), 'data.json')))
-        text.append(sensors)
+        last = datetime.strftime(datetime.fromtimestamp(
+            os.path.getmtime("{}/{}".format(os.path.dirname(os.path.realpath(__file__)), 'data.json'))),
+                                 "%Y-%m-%d %H:%M:%S")
+        text.append("‼️‼️{}‼️‼\n‼️Daten sind auf dem Stand von *{}*‼️️".format(sensors, last))
         with open("{}/{}".format(os.path.dirname(os.path.realpath(__file__)), 'data.json')) as data_file:
             sensors = json.load(data_file)
     else:
-        timestamp = datetime.now()
         sensors = useful(sensors)
     save_data(sensors)
+    timestamp = datetime.now()
     text.append(TEXT.format(**pretty(sensors)).replace(".", ","))
     text.append("_Aktualisiert: {}_".format(datetime.strftime(timestamp, "%Y-%m-%d %H:%M:%S")))
     return "\n".join(text)
