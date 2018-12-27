@@ -42,13 +42,20 @@ class BasicMongo:
         return True
 
     @staticmethod
-    def get_day_value(db, sensor, day, state=None):
+    def get_day_value(db, sensor, day, state=None, twenty_two=False):
         if not state:
             state = {"$exists": True}
         today = (datetime.now() + timedelta(days=day)).replace(hour=0, minute=0, second=0, microsecond=0)
+        if twenty_two:
+            today += timedelta(hours=6)
         tomorrow = today + timedelta(days=1)
         return db.sensors.find(
             {"name": sensor, "state": state, "timestamp": {"$gte": today, "$lt": tomorrow}})
+
+    @staticmethod
+    def get_partial_trend(db, sensor, timestamp):
+        plus_ten = timestamp + timedelta(minutes=5)
+        return db.sensors.find({"name": sensor, "timestamp": {"$gte": timestamp, "$lt": plus_ten}})
 
     @staticmethod
     def get_one(db, sensor):
