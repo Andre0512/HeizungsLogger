@@ -67,7 +67,7 @@ def save_data(data):
         for k, v in old_data.items():
             if not data[k] == old_data[k]:
                 logger.debug("changed = {} - {}".format(k, data[k]))
-                mongo.insert(db, {"state": v, "timestamp": datetime.now(), "name": k})
+                mongo.insert(db, {"state": data[k], "timestamp": datetime.now(), "name": k})
                 save = True
         if save:
             logger.debug("saved - " + str(data))
