@@ -7,6 +7,32 @@ from basic_mongo import BasicMongo as mongo
 from secrets import TELEGRAM
 
 
+class HeatDiff:
+    def __init__(self):
+        self.__data_list = []
+
+    def put(self, timestamp, value):
+        self.__purge_old(timestamp)
+        self.__data_list.append((timestamp, value))
+
+    def __purge_old(self, timestamp):
+        for idx, data in enumerate(self.__data_list):
+            if data[0] < timestamp - timedelta(minutes=7):
+                self.__data_list.pop(idx)
+
+    def __value_list(self):
+        return [v[1] for v in self.__data_list]
+
+    def get(self):
+        min_value = min(self.__value_list())
+        max_value = max(self.__value_list())
+        min_index = self.__value_list().index(min_value)
+        max_index = self.__value_list().index(max_value)
+        if min_index < max_index:
+            return max_value - min_value
+        return min_value - max_value
+
+
 def check_holes(data, full=None):
     if not full:
         full = {}
@@ -19,15 +45,30 @@ def check_holes(data, full=None):
     return full
 
 
-def get_heat_list(data):
+def get_closest(data, ts):
+    diff_list = {}
+    for d in data:
+        if d['timestamp'] > ts:
+            continue
+        diff_list[ts - d['timestamp']] = d
+    if not diff_list:
+        return {'state': 99}
+    return diff_list[min(list(diff_list))]
+
+
+def get_heat_list(data, s5, s6):
     sharp = False
     heat_list = []
-    for x in data:
-        if float(x['state']) < 60 and not sharp:
+    diff = HeatDiff()
+    for idx, x in enumerate(data):
+        diff.put(x['timestamp'], float(x['state']))
+        if diff.get() > 10 and not sharp:
             sharp = True
-        elif float(x['state']) > 70 and sharp:
+        elif diff.get() < -0.5 and sharp:
             heat_list.append(x['timestamp'])
             sharp = False
+    #   print(str(x['timestamp'])[:19], get_closest(s5, x['timestamp'])['state'],
+    #        get_closest(s6, x['timestamp'])['state'])
     return heat_list
 
 
@@ -84,8 +125,10 @@ def get_text(z=1):
     check_holes(mongo.get_day_value(db, "S9", z * -1, twenty_two=True), full)
     check_holes(mongo.get_day_value(db, "S14", z * -1, twenty_two=True), full)
     hole = 24 - len(full)
+    s5 = [x for x in mongo.get_day_value(db, "S5", z * -1, twenty_two=True)]
+    s6 = [x for x in mongo.get_day_value(db, "S6", z * -1, twenty_two=True)]
     s14 = mongo.get_day_value(db, "S14", z * -1, twenty_two=True)
-    heat_list = get_heat_list(s14)
+    heat_list = get_heat_list(s14, s5, s6)
     solar = {"Pumpe 1": "R1", "Pumpe 2": "R4"}
     result += "*Solar*:\n"
     for k, v in solar.items():
@@ -97,8 +140,8 @@ def get_text(z=1):
 
 
 def send():
-    Bot(TELEGRAM["token"]).send_message(chat_id=TELEGRAM["report_id"], message_id=TELEGRAM["msg_id2"],
-                                        text=get_text(), parse_mode=ParseMode.MARKDOWN, timeout=60)
+    Bot(TELEGRAM["token"]).send_message(chat_id=TELEGRAM["report_id"], message_id=14,
+                                             text=get_text(1), parse_mode=ParseMode.MARKDOWN, timeout=60)
 
 
 if __name__ == '__main__':
